@@ -37,20 +37,14 @@
                         <span class="flex items-center gap-3"><i class="fa-solid fa-compress text-lg"></i> Compress Asset Size</span>
                         <i class="fa-solid fa-chevron-right text-xs opacity-0"></i>
                     </button>
-                    <button onclick="switchTab('rotate')" id="btn-rotate" class="tab-btn w-full flex items-center justify-between px-4 py-3 rounded-xl transition font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
-                        <span class="flex items-center gap-3"><i class="fa-solid fa-rotate text-lg"></i> Rotate Orientations</span>
-                        <i class="fa-solid fa-chevron-right text-xs opacity-0"></i>
-                    </button>
-                    <button onclick="switchTab('convert')" id="btn-convert" class="tab-btn w-full flex items-center justify-between px-4 py-3 rounded-xl transition font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
-                        <span class="flex items-center gap-3"><i class="fa-solid fa-file-export text-lg"></i> Image to PDF</span>
-                        <i class="fa-solid fa-chevron-right text-xs opacity-0"></i>
-                    </button>
                 </nav>
             </div>
 
             <div class="lg:grid lg:col-span-2">
                 <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-                    <form id="upload-form" enctype="multipart/form-data" method="POST" action="/merge" onsubmit="handleFormSubmit(event)">
+                    <form id="upload-form" enctype="multipart/form-data" method="POST" action="/api/pdf" onsubmit="handleFormSubmit(event)">
+                        <input type="hidden" name="tool" id="tool-param" value="merge">
+                        
                         <div id="tab-title-area" class="mb-6">
                             <h3 id="current-action-title" class="text-xl font-bold text-slate-100">Merge PDFs & Images</h3>
                             <p id="current-action-desc" class="text-slate-400 text-sm mt-1">Combine multiple document paths and image formats sequentially into a single target file structure.</p>
@@ -93,22 +87,32 @@
         let currentTab = 'merge';
 
         const configs = {
-            merge: { title: 'Merge PDFs & Images', desc: 'Combine multiple document paths and image formats sequentially into a single target file structure.', endpoint: '/merge', accepts: '.pdf,.png,.jpg,.jpeg' },
-            split: { title: 'Split PDF Pages', desc: 'Extract individual pages or range structures out of a target master PDF file document.', endpoint: '/split', accepts: '.pdf' },
-            compress: { title: 'Compress Asset Size', desc: 'Downsample internal DPI structures and resource weights to lower processing sizing footprint metrics.', endpoint: '/compress', accepts: '.pdf' },
-            rotate: { title: 'Rotate Orientations', desc: 'Flip and adjust rotation angles uniformly across document page coordinate planes.', endpoint: '/rotate', accepts: '.pdf' },
-            convert: { title: 'Image to PDF', desc: 'Direct compilation translation engine mapping bitmap structures into structural standard formatting.', endpoint: '/convert', accepts: '.png,.jpg,.jpeg' }
+            merge: { title: 'Merge PDFs & Images', desc: 'Combine multiple document paths and image formats sequentially into a single target file structure.', endpoint: '/api/pdf', accepts: '.pdf,.png,.jpg,.jpeg', multiple: true },
+            split: { title: 'Split PDF Pages', desc: 'Extract individual pages or range structures out of a target master PDF file document.', endpoint: '/api/pdf', accepts: '.pdf', multiple: false },
+            compress: { title: 'Compress Asset Size', desc: 'Downsample internal DPI structures and resource weights to lower processing sizing footprint metrics.', endpoint: '/api/pdf/compress-preview', accepts: '.pdf,.png,.jpg,.jpeg', multiple: false }
         };
 
         function switchTab(tab) {
             currentTab = tab;
             const form = document.getElementById('upload-form');
+            const fileInput = document.getElementById('file-input');
+            const toolParam = document.getElementById('tool-param');
+            
             form.action = configs[tab].endpoint;
+            toolParam.value = tab;
 
             document.getElementById('current-action-title').innerText = configs[tab].title;
             document.getElementById('current-action-desc').innerText = configs[tab].desc;
-            document.getElementById('file-spec-text').innerText = `Supports ${configs[tab].accepts.toUpperCase().replace(/\./g, '')} up to 100 MB total`;
-            document.getElementById('file-input').accept = configs[tab].accepts;
+            document.getElementById('file-spec-text').innerText = `Supports ${configs[tab].accepts.toUpperCase().replace(/\./g, '')} up to 100 MB`;
+            
+            fileInput.accept = configs[tab].accepts;
+            if (configs[tab].multiple) {
+                fileInput.setAttribute('multiple', 'multiple');
+                fileInput.name = 'files';
+            } else {
+                fileInput.removeAttribute('multiple');
+                fileInput.name = 'file';
+            }
 
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.className = "tab-btn w-full flex items-center justify-between px-4 py-3 rounded-xl transition font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200";
@@ -119,24 +123,22 @@
             activeBtn.className = "tab-btn w-full flex items-center justify-between px-4 py-3 rounded-xl transition font-medium bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/10";
             activeBtn.querySelector('.fa-chevron-right').classList.remove('opacity-0');
 
-            // Render option controls dynamically
             const panel = document.getElementById('dynamic-options-panel');
             if (tab === 'compress') {
                 panel.className = "mb-6 bg-slate-900/20 border border-slate-800 rounded-xl p-4";
                 panel.innerHTML = `
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex justify-between">
-                        Target Execution Profile <span id="comp-val" class="font-mono text-amber-400 text-sm">Medium (60%)</span>
+                        Compression Target Level <span id="comp-val" class="font-mono text-amber-400 text-sm">50%</span>
                     </label>
-                    <input type="range" name="power" min="10" max="90" value="60" oninput="document.getElementById('comp-val').innerText = this.value + '%'" class="w-full accent-amber-500 bg-slate-800 rounded-lg appearance-none h-2">
+                    <input type="range" name="percentage" min="10" max="90" value="50" oninput="document.getElementById('comp-val').innerText = this.value + '%'" class="w-full accent-amber-500 bg-slate-800 rounded-lg appearance-none h-2">
                 `;
-            } else if (tab === 'rotate') {
+            } else if (tab === 'split') {
                 panel.className = "mb-6 bg-slate-900/20 border border-slate-800 rounded-xl p-4";
                 panel.innerHTML = `
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Rotational Shift Angle</label>
-                    <select name="angle" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 accent-slate-900 focus:outline-none focus:border-amber-500">
-                        <option value="90">90 Degrees Clockwise</option>
-                        <option value="180">180 Degrees Flip</option>
-                        <option value="270">270 Degrees Counter-Clockwise</option>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Split Format Extraction</label>
+                    <select name="split_format" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+                        <option value="pdf">First Page Only (.pdf)</option>
+                        <option value="images">Extract All Pages as Archive (.zip)</option>
                     </select>
                 `;
             } else {
@@ -170,7 +172,7 @@
                     li.className = "flex items-center justify-between text-xs bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-slate-300";
                     li.innerHTML = `
                         <span class="flex items-center gap-2 truncate max-w-[80%]">
-                            <i class="fa-regular class-file-icon ${file.type.includes('pdf') ? 'fa-file-pdf text-red-400' : 'fa-file-image text-blue-400'}"></i>
+                            <i class="fa-regular ${file.type.includes('pdf') ? 'fa-file-pdf text-red-400' : 'fa-file-image text-blue-400'}"></i>
                             <span class="truncate">${file.name}</span>
                         </span>
                         <span class="text-slate-500 font-mono">${(file.size / (1024 * 1024)).toFixed(2)} MB</span>
@@ -206,19 +208,36 @@
                 const response = await fetch(form.action, { method: 'POST', body: formData });
                 if (!response.ok) throw new Error('Processing Pipeline Failure');
 
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = currentTab === 'merge' || currentTab === 'convert' || currentTab === 'rotate' || currentTab === 'compress' ? 'forge_output.pdf' : 'forge_archive.zip';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                if (currentTab === 'compress') {
+                    // Two-step download logic for compression matching your custom backend structure
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error);
+                    
+                    // Trigger download step automatically using file_id reference
+                    const downloadUrl = `/api/pdf/compress-download/${data.file_id}`;
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `compressed_${selectedFiles[0].name}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                } else {
+                    // Handle standard Merge/Split direct file response
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = currentTab === 'merge' ? 'merged.pdf' : 'split_output';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                }
             } catch (err) {
-                alert('Pipeline Processing Error: Verification mismatch, look at your cloud dashboard runtime output log streams.');
+                alert('Pipeline Processing Error: Endpoint connection failure.');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = origContent;
+                clearQueue();
             }
         }
     </script>
